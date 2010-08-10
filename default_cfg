@@ -1,0 +1,85 @@
+#---------------------------------------------------
+# default-conf
+#
+# Configuration file for the csv2ibex python script.
+# 	- Defines the <default> location of IO files, ordering,
+#	  and Experiment Name/Contact info 
+#	- Defines the header of the Ibex document
+#		*includes order and defaults
+#
+# All variable assignments are of form <var_name: var_value>,
+#	with no more than one assignmnent per line. White space
+#	and comments (lines starting with #) will be ignored.
+#
+# Order is unimportant except for the headers "VARS and 
+#	"DEFAULTS." See wiki.bcs.rochester.edu:2525/HlpLab/csv2ibex
+#	for more detailed instructions
+#---------------------------------------------------
+
+#SCRIPT VARIABLES -----------------------------------------------------
+VARS:
+
+# EXPERIMENT and CONTACT INFO
+
+experiment_name: "Self-Paced Reading"
+researcher: "HLP/Jaeger Lab, University of Rochester"
+contact: jaegerlab@bcs.rochester.edu
+
+# INPUT FILE:  This is the path to the default input file.  This is overridden 
+# by filenames given on the command line when the script is called
+
+inputfile: input.csv
+
+# OUTPUT FILE: Path to the default output file. Overridden by names given
+# on command line
+
+outputfile: data.js
+
+# ORDER: set this variable to determine what order to presend your items. 
+# Available options are:
+#	ORDERED: Items are presented in the order they are listed
+#	SHUFFLE: Items types are evenly spaced, but presented in listed order
+#	RANDOM:  Each item type is randomized, but order is preserved across type
+#	RSHUFFLE: Items are randomized and shuffled
+
+order: ORDERED
+
+# FILLER: set how to treat filler items for ordering
+# Options are:
+#	ITEM: Fillers are treated as a normal item
+#	SEP_EACH: Fillers seperate all critical items (no two critical items may be adjacent)
+
+filler: SEP_EACH
+
+
+# ITEM DEFAULTS ---------------------------------------------------------- 
+#	Each type of controller is followed by default parameters for each.
+#	These are verbatim from the documentation found at 
+#	http://code.google.com/p/webspr/wiki/Documentation03
+DEFAULTS:
+
+Separator:
+	# transfer: how Ibex transitions from item to item; either a number of miliseconds
+	# or 'keypress' to require the use to press the "space" key to continue
+	transfer: 1500
+	
+	# The message to normally display on the separators
+	normalMessage: "Please wait for the next sentence"
+
+	# The message to display (in red) in the event that the subject answered the question wrong
+	errorMessage: "Wrong. Please wait for the next sentence"
+
+RegionedSentence:
+	mode: "self-paced reading"
+
+Question:
+	# The default answer choices
+	as: ["Yes", "No"]
+
+	# Randomly order the answer choices
+	randomOrder: false
+	
+	# Whether a question has a right answer...if true, then the first item in the list of questions is correct
+	hasCorrect: true
+
+	
