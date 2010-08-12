@@ -1,13 +1,13 @@
 #! /usr/bin/python
 #-----------------------------------------------------------------
 # csv2ibex.py 
-# Version 1.2.4
+# Version 0.9.5
 #-----------------------------------------------------------------
 # Author: Andrew Wood <andywood@vt.edu>
 #                          
 # HLP/Jaeger Lab
 # University of Rochester
-# 08/09/2010
+# 08/11/2010
 #
 # Converts a tab-delimited CSV file to a Javascript input file for
 #	Ibex (formerly webSPR) web-based self-paced reading 
@@ -25,7 +25,7 @@ COL_STIMULUS = "Stimulus"
 COL_STIM_ID = "StimulusID"
 COL_LIST = "List"
 COL_ORDER = "TrialOrder"
-COL_TYPE = "Item"
+COL_TYPE = "StimulusType"
 COL_CONDITION = "Condition"
 COL_QUESTION = "Question"
 COL_ANSWER = "Answer"
@@ -153,7 +153,7 @@ def formatHeader(dct):
 		elif(order == "RSHUFFLE"): tmp = 'rshuffle("filler",%s)';
 
 	try: 
-		return 'var shuffleSequence = seq("intro", "practice", sepWith("sep", %s), endmsg);\n\nvar ds = "RegionedSentence"\nvar qs = "Question"\n\n%s' % (tmp, dct["defaults"])
+		return 'var shuffleSequence = seq("intro", "info", "practice", sepWith("sep", %s), endmsg);\n\nvar ds = "RegionedSentence"\nvar qs = "Question"\n\n%s' % (tmp, dct["defaults"])
 	except KeyError:
 		print "WARNING: invalid header dictionary...returning a NoneType"
 		return None
@@ -224,10 +224,13 @@ def generateItemDict(infile):
 			#STIMULUS
 			try:
 				stimulus = line[COL_STIMULUS]
-				if not stimulus.rstrip()[-1] in END_PUNCTUATION:
+				if stimulus == "":
+					qExit("Warning: Blank stimulus: "+ID, qExitOpt)
+					continue
+				elif not stimulus.rstrip()[-1] in END_PUNCTUATION:
 					print "Warning: no ending punctuation for stimulusID ",ID
 			except KeyError:
-				print "ERROR: No 'Stimulus' column...\n\tkinda required to build an experiment."
+				print "ERROR: No 'Stimulus' column...\n\t-required to build an experiment!"
 				sys.exit(1)
 	
 			#ITEM
@@ -241,7 +244,7 @@ def generateItemDict(infile):
 	
 			#ORDER		
 			try:
-				order = line[COL_ORDER]
+				order = int(line[COL_ORDER])
 				if order == "" or order == None:
 					qExit("Warning: blank order at stimuli: %s" % (ID), qExitOpt)
 			except KeyError:
@@ -260,7 +263,7 @@ def generateItemDict(infile):
 
 			#CONDITION (overwrites type, unless it's '-'
 			try:
-				if(not line[COL_CONDITION] == "-"):
+				if(not line[COL_CONDITION].upper() in ["-", "", "NA", "N/A"]):
 					stimType = line[COL_CONDITION]
 			except KeyError:
 				if not conditionWarning: print "Warning: conditions not specified, using 'defaultStim'";
@@ -281,19 +284,22 @@ def generateItemDict(infile):
 	
 					#make sure both the QuestionN and AnswerN fields have a value
 					if((answer == "" or answer == None) and not (question == "" or question == None)): #exists question but no answer
-						qExit("Warning at stimuli %s, question %d: No answer present for question" % (ID, i), qExitOpt)
+						qExit("WARNING at stimuli %s, question %d: No answer present for question" % (ID, i), qExitOpt)
 						raise KeyError
+						continue
 					elif((question == "" or question == None) and not (answer == "" or answer == None)): #exists answer but no question
-						qExit("Warning at stimuli %s, question %d: No question, but answer exists" % (ID, i), qExitOpt)
+						qExit("WARNING at stimuli %s, question %d: No question, but answer exists" % (ID, i), qExitOpt)
 						raise KeyError
+						continue
 					elif(answer == "" or question =="" or answer == None or question == None): #Don't display if question or answer is missing
 						raise KeyError
+						continue
 					else:
 						questionExist = True
 
 					#determine type of question (yes/no vs multiple choice)
-					if(answer == "Y" or answer == "N"):
-						if(answer == "Y"):
+					if(answer.upper() == "Y" or answer.upper() == "N"):
+						if(answer.upper() == "Y"):
 							answer = ', hasCorrect: "Yes", randomOrder: false'
 						else:
 							answer = ', hasCorrect: "No", randomOrder: false'
@@ -307,7 +313,7 @@ def generateItemDict(infile):
 					questions += '\n\t\tqs, {q: "%s" %s},' % (question, answer)
 
 				except KeyError:
-					if not questionExist: print "WARNING: No question/answer pair found, using only stimulus.";
+					if not questionExist: print "No question/answer pair found for stimulus",ID,", using only stimulus.";
 					break
 				i += 1
 
@@ -338,8 +344,8 @@ def generateItemDict(infile):
 #	 * String containing the 'items' structure
 def generateItemStr(infile):
 	dct = generateItemDict(infile)
-	outputStr='\nvar items = [\n\t["sep", "Separator", {}],\n\t ' +\
-		'["intro", "Message", {consentRequired: true, html: {include: "intro.html"}}],' +\
+	outputStr='\nvar items = [\n\t["sep", "Separator", {}],\n\t' +\
+		'["intro", "Message", {consentRequired: true, html: {include: "intro.html"}}],\n\t' +\
 		'["info", "Form", {html: {include: "info.html"}}],'
 	for i in sorted(dct):
 		outputStr += "\n\t"+str(dct[i])
@@ -361,7 +367,10 @@ def createOutfile(outfile, header, items, footer):
 		tmp = ""
 		for item in itemlist:
 			tmp += '"'+item+'",'
-		header = header % (tmp[:-1])
+		try: 
+			header = header % (tmp[:-1])
+		except TypeError: 
+			pass
 
 	with open(outfile, 'w') as fout: 
 		fout.write("%s\n%s\n%s\n" % (header, items, footer))
