@@ -142,15 +142,19 @@ def formatHeader(dct):
     tmp = ""
 
     if(filler == "SEP_EACH"):
-        if(order == "ORDERED"): tmp = 'shuffle(randomize("filler"), anyOf(%s))';
-        elif(order == "SHUFFLE"): tmp = 'shuffle(randomize("filler"), shuffle(%s))';
-        elif(order == "RANDOM"): tmp = 'shuffle(randomize("filler"), seq(randomize(%s)))';
-        elif(order == "RSHUFFLE"): tmp = 'shuffle(randomize("filler"), rshuffle(%s))';
+        tmp = {
+            "ORDERED" : 'shuffle(randomize("filler"), anyOf(%s))',
+            "SHUFFLE" : 'shuffle(randomize("filler"), shuffle(%s))',
+            "RANDOM" : 'shuffle(randomize("filler"), seq(randomize(%s)))',
+            "RSHUFFLE" : 'shuffle(randomize("filler"), rshuffle(%s))'
+        }[order]
     else:
-        if(order == "ORDERED"): tmp = 'not("sep")';
-        elif(order == "SHUFFLE"): tmp = 'shuffle("filler",%s)';
-        elif(order == "RANDOM"): tmp = 'randomize(anyOf("filler",%s))';
-        elif(order == "RSHUFFLE"): tmp = 'rshuffle("filler",%s)';
+        tmp = {
+            "ORDERED" : 'not("sep")',
+            "SHUFFLE" : 'shuffle("filler",%s)',
+            "RANDOM" : 'randomize(anyOf("filler",%s))',
+            "RSHUFFLE" : 'rshuffle("filler",%s)'
+        }[order]
 
     try:
         return 'var shuffleSequence = seq("intro", "info", "practice", sepWith("sep", %s), endmsg);\n\nvar ds = "RegionedSentence"\nvar qs = "Question"\n\n%s' % (tmp, dct["defaults"])
