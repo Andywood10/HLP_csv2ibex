@@ -4,6 +4,7 @@
 # Version 0.9.5
 #-----------------------------------------------------------------
 # Author: Andrew Wood <andywood@vt.edu>
+# Modified by: Andrew Watts <awatts@bcs.rochester.edu>
 #
 # HLP/Jaeger Lab
 # University of Rochester
@@ -49,10 +50,10 @@ def qExit(msg, option = "PROMPT"):
     if c == 'y': return
     else: sys.exit(1)
 
-# checkFile
+# check_file
 # - check if a file exists and is openable
 #
-def checkFile(filename):
+def check_file(filename):
     try:
         f = open(filename).close()
     except IOError:
@@ -62,10 +63,10 @@ def checkFile(filename):
 
 # HEADER GENERATION ***************************************************
 
-# removeWhitespace
+# remove_whitespace
 # - Simple method to remove tabs and spaces from non-quote strings
 #
-def removeWhitespace(s):
+def remove_whitespace(s):
     quoting = 0
     s2 = ""
     for c in s:
@@ -82,7 +83,7 @@ def removeWhitespace(s):
     return s2
 
 
-# parseConfigFile
+# parse_config_file
 #   params:
 #    * conf:String - name of the input configuration file
 #   return:
@@ -92,8 +93,8 @@ def removeWhitespace(s):
 #       * filler:String - how to treat fillers
 #       * order:String - the shuffleSeq that describes the order of the items
 #       * defaults:String - the item defaults: see the hlp wiki(FIXME: url here) for specifics
-def parseConfigFile(conf):
-    checkFile(conf)
+def parse_config_file(conf):
+    check_file(conf)
 
     outDict = {}
     defStr = "var defaults = ["
@@ -103,7 +104,7 @@ def parseConfigFile(conf):
         for line in fin:
             #remove whitespace and comment
             line = line[:-1]
-            l = removeWhitespace(line)
+            l = remove_whitespace(line)
             if l=="": continue;
             if l[0] == '#': continue;
 
@@ -134,9 +135,9 @@ def parseConfigFile(conf):
     return outDict
 
 
-#formatHeader
+#format_header
 # - convert the header dictionary into a js string.
-def formatHeader(dct):
+def format_header(dct):
     order = dct["order"]
     filler = dct["filler"]
     tmp = ""
@@ -163,28 +164,28 @@ def formatHeader(dct):
         return None
 
 #generateHeader
-# - Wrappers for the parseConfigFile method that generates a formatted string rather than a dictionary. Has two versions, depending on whether the user wants the intermediate dictionary structure.
+# - Wrappers for the parse_config_file method that generates a formatted string rather than a dictionary. Has two versions, depending on whether the user wants the intermediate dictionary structure.
 #   params (for Cnf version):
 #    * conf:String - name of the input config file
 #   params (for Dct version):
-#    * dct: - dict gathered from parseConfigFile
+#    * dct: - dict gathered from parse_config_file
 #   return:
 #    * String header (formatted)
-def generateHeaderCnf(conf):
-    d = parseConfigFile(conf)
-    return formatHeader(d)
-def generateHeaderDct(dct):
-    return formatHeader(dct)
+def generate_header_cnf(conf):
+    d = parse_config_file(conf)
+    return format_header(d)
+def generate_header_dct(dct):
+    return format_header(dct)
 
 # ITEM GENERATION *****************************************************
 
-# generateItemDict
+# generate_item_dict
 #   params:
 #    * infile:String - name of the input tab-separated file
 #   return:
 #    * Dictionary of items in format {key: order.list, value: outputstring}
-def generateItemDict(infile):
-    checkFile(infile)
+def generate_item_dict(infile):
+    check_file(infile)
 
     listWarning = False
     orderWarning = False
@@ -341,13 +342,13 @@ def generateItemDict(infile):
     return outputLines
 
 
-# generateItemStr
+# generate_item_str
 #   params:
 #    * indict:Dictionary - contains the dictionary of items to be wrapped in a string
 #   return:
 #    * String containing the 'items' structure
-def generateItemStr(infile):
-    dct = generateItemDict(infile)
+def generate_item_str(infile):
+    dct = generate_item_dict(infile)
     outputStr='\nvar items = [\n\t["sep", "Separator", {}],\n\t' +\
         '["intro", "Message", {consentRequired: true, html: {include: "intro.html"}}],\n\t' +\
         '["info", "Form", {html: {include: "info.html"}}],'
@@ -358,7 +359,7 @@ def generateItemStr(infile):
 
 # OUTPUT FILE CREATION **************************************************************
 
-# createOutfile
+# create_outfile
 # -simple wrapper to create an output file (can be used for more than just ibex files...)
 #   params:
 #    * outfile:String - name of the file to be created/overwritten
@@ -366,7 +367,7 @@ def generateItemStr(infile):
 #    * items:String - the items string
 #    * footer:String - file footer
 #   return: nothing (creates output file)
-def createOutfile(outfile, header, items, footer):
+def create_outfile(outfile, header, items, footer):
     if len(itemlist) > 0:
         tmp = ""
         for item in itemlist:
@@ -383,8 +384,8 @@ def createOutfile(outfile, header, items, footer):
 
 # FORMAT RESULTS FILE *********************************************************************
 # Produce two tab-delimited files from the supplied results file
-def formatResults(infile):
-    checkFile(infile)
+def format_results(infile):
+    check_file(infile)
 
     qOut = "Timestamp\tIP_MD5\tSeq\tType\tAnswerCorrect\n"
     sOut = "Timestamp\tIP_MD5\tSeq\tType\tWordNum\tWord\tTag\tReadTime\n"
@@ -416,148 +417,147 @@ def formatResults(infile):
         fout.write(qOut)
         print "File 'questions.csv' successfully written"
 
+def set_force_continue(option, opt_str, value, parser):
+    """
+    A callback for optparse
+    """
+    global qExitOpt
+    qExitOpt = "AUTOCONTINUE"
+
+def set_strict(option, opt_str, value, parser):
+    """
+    A callback for optparse
+    """
+    global qExitOpt
+    qExitOpt = "AUTOFAIL"
 
 # USER INTERFACE *********************************************************************
 
 if __name__=="__main__":
     import sys
+    from optparse import OptionParser
 
-    usageStr= "USAGE:\tpython csv2ibex.py [PARAMETERS] INPUT_FILE OUTPUT_FILE\n" +\
-          "or:\tpython csv2ibex.py -c [MORE PARAMETERS] CONFIG_FILE [INPUT_FILE OUTPUT_FILE]\n" +\
-          "or:\tpython csv2ibex.py -O [RESULTS_FILE (default 'results')]"
+    usageStr= "\t%prog [PARAMETERS] INPUT_FILE OUTPUT_FILE\n" +\
+          "or:\t %prog -c CONFIG_FILE [MORE PARAMETERS] [INPUT_FILE OUTPUT_FILE]\n" +\
+          "or:\t %prog -O [RESULTS_FILE (default 'results')]\n" +\
+          "or:\t %prog --help"
+    parser = OptionParser(usage=usageStr,
+                          description="IBEX Input File Converter: " +\
+                                      "Converts a tab-delimited CSV file to a JavaScript input file " +\
+                                      "for Ibex.\n",
+                          epilog="Author: Andrew Wood <andywood@vt.edu>",
+                          version="%prog 0.9.5")
 
-    helpStr = "\n======== IBEX Input File Converter ========\n" +\
-          "Author: Andrew Wood <andywood@vt.edu>\n" +\
-          "\n" +\
-          "Converts a tab-delimited CSV file to a javascript input file for Ibex.\n" +\
-          "\n"+usageStr +\
-          "\nCommand line options: \n" +\
-          "\t-c\tConfig File:\tIndicates the use of a custom configuration file (given on command line)\n" +\
-          "\t-d\tDefaults:   \tUse default IO files and ordering from the default config file\n" +\
-          "\t-f\tFiller opts:\tUse filler items in the normal ordering (default is to separate all items with a filler)\n" +\
-          "\t-O\tOutputMode: \tRun in 'Format Output' mode: make the Ibes results file more readable\n" +\
-          "\t-p\tPrompt:     \tPrompt the user for any missing information\n" +\
-          "\t-r\tRandomize:  \tRandomize items of each type (don't use if you hard coded an ordering)\n" +\
-          "\t-s\tShuffle:    \tShuffle (evenly space) the different types of items\n" +\
-          "======== ========================= ========\n"
+    parser.add_option("-c", "--config", dest="configfile", default="default_cfg",
+                  help="Use a custom config file")
+    parser.add_option("-d", "--defaults", action="store_true", dest="defaults",
+                  default=True, help="Use default in-out files")
+    parser.add_option("-f", "--fillernormal", action="store_true", default=False,
+                      dest="fillerin", help = "Treat Fillers as a normal item")
+    parser.add_option("-F", "--force", action="callback", callback=set_force_continue,
+                      help="Ignore warnings and continue")
+    parser.add_option("-n", "--nothing", action="store_true", dest="doNothing", default=False,
+                      help="Stop after parsing arguments")
+    parser.add_option("-O", "--outputformat", action="store_true", dest="outputFmtMode", default=False,
+                      help="Run in 'Format Output' mode: make the Ibex results file more readable")
+    parser.add_option("-p", "--prompt", action="store_true", dest="prompt", default=False,
+                      help="Prompt the user for any missing information")
+    parser.add_option("-r", "--randomize", action="store_true", dest="randomize", default=False,
+                      help="Randomize items of each type (don't use if you hard coded an ordering)")
+    parser.add_option("-s", "--shuffle", action="store_true", dest="shuffle", default=False,
+                      help="Shuffle (evenly space) the different types of items")
+    parser.add_option("-S", "--strict", action="callback", callback=set_strict,
+                      help="Strict: will automatically stop if an error is encountered")
 
-    ## Parse command line args ##
+    (options, args) = parser.parse_args()
+
     infile = None
     outfile = None
-    configfile = "default_cfg"
-
-    cfile = False
-    defaults = False
-    doNothing = False
-    fillerin = True
-    outputFmtMode = False
-    prompt = False
-    randomize = False
-    orderChanged = False
-    shuffle = False
-    ctr = 0;
-    dct = {}
-
-    #UNIX-style command parameters:
-    for arg in sys.argv:
-        if(ctr == 0): ctr += 1; continue;
-
-        if(arg == "help"):
-            print helpStr
-            sys.exit(0)
-        if(arg[0] != '-'):
-            break
-        else:
-            for c in arg:
-                if c == '-': continue;
-                elif c == 'c': cfile = True;     #Use a custom config file
-                elif c == 'd': defaults = True;  #Use default in-out files
-                elif c == 'f': fillerin = False; #Treat Fillers as a normal item
-                elif c == 'F': qExitOpt = "AUTOCONTINUE" #Force: ignore warnings and continue
-                elif c == 'n': doNothing = True; #Stop after parsing argv
-                elif c == 'O': outputFmtMode = True #Output format mode
-                elif c == 'p': prompt = True;    #Prompt for non-supplied info
-                elif c == 'r': randomize = True; orderChanged = True   #Randomize items
-                elif c == 's': shuffle = True; orderChanged = True  #Shuffle different types
-                elif c == 'S': qExitOpt = "AUTOFAIL" #Strict: will automatically stop if an error is encountered
-                else: print "Warning: unrecognized command '" + c + "'."
-        ctr += 1
+    if len(args) == 2:
+        infile = args[0]
+        outfile = args[1]
+    else:
+        if not options.prompt:
+            parser.print_usage()
+            sys.exit(-1)
 
     #format output mode
-    if(outputFmtMode):
-        if(len(sys.argv) == ctr+1):
-            infile = sys.argv[ctr]
-            formatResults(infile)
+    if(options.outputFmtMode):
+        if(infile):
+            format_results(infile)
         else:
-            formatResults("results")
+            format_results("results")
         sys.exit(0)
 
+    orderChanged = False
     #handle defaults
-    if not defaults:
-        if (not cfile and len(sys.argv) == (2+ctr)): #(default config)
-            infile = sys.argv[ctr]
-            outfile = sys.argv[ctr+1]
-        elif(cfile and len(sys.argv) == (1+ctr)): #(custom config...contains IO info)
-            configfile = sys.argv[ctr]
-        elif(cfile and len(sys.argv) == (3+ctr)): #(custom config...supplying IO from cmd)
-            infile = sys.argv[ctr+1]
-            outfile = sys.argv[ctr+2]
-            configfile = sys.argv[ctr]
-        elif(prompt): #(gather this info via command prompts)
-
-            if(configfile == "default_cfg"):
-                configfile = raw_input("Enter the name of your custom config file, or simply hit enter to continue with prompts:")
-                if(configfile == ""): configfile = "default_cfg";
-            if(infile == None or configfile == "default_cfg"):
-                infile = raw_input("Enter the name of your input file (required): ")
-                checkFile(infile)
-            if(outfile == None or configfile == "default_cfg"):
+    if not options.defaults:
+        if(options.prompt): #(gather this info via command prompts)
+            if(options.configfile == "default_cfg"):
+                options.configfile = raw_input("Enter the name of your custom config file, or simply hit enter to continue with prompts:")
+                if(options.configfile == ""):
+                    options.configfile = "default_cfg"
+            if(options.infile == None or configfile == "default_cfg"):
+                options.infile = raw_input("Enter the name of your input file (required): ")
+                check_file(options.infile)
+            if(outfile == None or options.configfile == "default_cfg"):
                 outfile = raw_input("Enter the desired output file name [data.js]: ")
-                if(outfile == ""): outfile="data.js";
-            if(configfile == "default_cfg"):
+                if(options.outfile == ""):
+                    outfile="data.js"
+            if(options.configfile == "default_cfg"):
                 if( (raw_input("Evenly space different item types? \nUse this option unless you have specified an order for all items (y/n)")) == 'y'):
-                    shuffle = True
-                    orderChanged = True
+                    options.shuffle = True
                 if( (raw_input("Randomize items? \nIMPORTANT: Only use this option if you did not specify an order! (y/n)")) == 'y'):
-                    randomize = True
-                orderChanged = True
+                    options.randomize = True
                 if( (raw_input("Separate all items with a filler? If no, fillers are treated as normal items. (y/n)")) == 'n'):
-                    fillerin = False
-        #incorrect usage
-        else:
-            print usageStr + "Type 'python conversion0.3.py' help for more details"
-            sys.exit(1)
+                    options.fillerin = False
 
-    dct = parseConfigFile(configfile)
+    if (options.randomize or options.shuffle):
+        orderChanged = True
+
+    dct = {}
+    dct = parse_config_file(options.configfile)
 
     #figure out appropriate ordering variables
-    if not fillerin: dct["filler"] = "ITEM";
+    if not options.fillerin:
+        dct["filler"] = "SEP_EACH"
+    else:
+        dct["filler"] = "ITEM"
 
     if orderChanged:
-        if shuffle:
-            if randomize: dct["order"] = "RSHUFFLE";
-            else: dct["order"] = "SHUFFLE";
+        if options.shuffle:
+            if options.randomize:
+                dct["order"] = "RSHUFFLE"
+            else: dct["order"] = "SHUFFLE"
         else:
-            if randomize: dct["order"] = "RANDOMIZE";
-            else: dct["order"] = "ORDERED";
+            if options.randomize:
+                dct["order"] = "RANDOMIZE"
+            else:
+                dct["order"] = "ORDERED"
 
-    if infile == None: infile = dct["inputfile"];
-    if outfile == None: outfile = dct["outputfile"];
-    else: dct["outputfile"] = outfile;
+    if infile == None:
+        infile = dct["inputfile"];
+    if outfile == None:
+        outfile = dct["outputfile"];
+    else:
+        dct["outputfile"] = outfile;
 
-    header = generateHeaderDct(dct)
-    items = generateItemStr(infile)
+    print dct
+
+    header = generate_header_dct(dct)
+    items = generate_item_str(infile)
 
     #debug the cmd-line processor
-    if doNothing:
-        print "doing nothing:\ninput_file: " +infile+ "\noutput_file: " +outfile+ "\nconfig_file: " +str(configfile)+"\nOrderChanged? "+str(orderChanged)   +"\nShuffle? "+str(shuffle)+"\nRandomize? "+str(randomize)+"\nFiller as normal item? "+str(not fillerin)+"\n\n"+header+"\n"+items
+    if options.doNothing:
+        print "doing nothing:\ninput_file: " +infile+ "\noutput_file: " +outfile+ \
+        "\nconfig_file: " +str(options.configfile)+"\nOrderChanged? "+str(orderChanged) \
+        +"\nShuffle? "+str(options.shuffle)+"\nRandomize? "+str(options.randomize)+"\nFiller as normal item? " \
+        +str(not options.fillerin) +"\n\n"+header+"\n"+items
         sys.exit(0)
     else:
-        createOutfile(outfile, header, items, "")
+        create_outfile(outfile, header, items, "")
         try:
             import tab
             tab.replace(outfile)
         except ImportError:
             pass
-
-
