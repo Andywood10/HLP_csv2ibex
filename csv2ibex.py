@@ -44,7 +44,7 @@ def qExit(msg, option = "PROMPT"):
         sys.exit(1);
     elif option == "AUTOCONTINUE":
         print msg
-        return;
+        return
 
     c = raw_input(msg + "\nWould you like to continue anyway? (y/n): ")
     if c == 'y': return
@@ -134,10 +134,10 @@ def parse_config_file(conf):
     outDict["defaults"]=defStr
     return outDict
 
-
-#format_header
-# - convert the header dictionary into a js string.
 def format_header(dct):
+    """
+    convert the header dictionary into a js string.
+    """
     order = dct["order"]
     filler = dct["filler"]
     tmp = ""
@@ -180,11 +180,14 @@ def generate_header_dct(dct):
 # ITEM GENERATION *****************************************************
 
 # generate_item_dict
-#   params:
-#    * infile:String - name of the input tab-separated file
-#   return:
-#    * Dictionary of items in format {key: order.list, value: outputstring}
+
 def generate_item_dict(infile):
+    """
+    params:
+        * infile:String - name of the input tab-separated file
+    return:
+        * Dictionary of items in format {key: order.list, value: outputstring}
+    """
     check_file(infile)
 
     listWarning = False
@@ -343,11 +346,14 @@ def generate_item_dict(infile):
 
 
 # generate_item_str
-#   params:
-#    * indict:Dictionary - contains the dictionary of items to be wrapped in a string
-#   return:
-#    * String containing the 'items' structure
+
 def generate_item_str(infile):
+    """
+    params:
+        * indict:Dictionary - contains the dictionary of items to be wrapped in a string
+    return:
+        * String containing the 'items' structure
+    """
     dct = generate_item_dict(infile)
     outputStr='\nvar items = [\n\t["sep", "Separator", {}],\n\t' +\
         '["intro", "Message", {consentRequired: true, html: {include: "intro.html"}}],\n\t' +\
@@ -360,25 +366,25 @@ def generate_item_str(infile):
 # OUTPUT FILE CREATION **************************************************************
 
 # create_outfile
-# -simple wrapper to create an output file (can be used for more than just ibex files...)
-#   params:
-#    * outfile:String - name of the file to be created/overwritten
-#    * header:String - the file header
-#    * items:String - the items string
-#    * footer:String - file footer
-#   return: nothing (creates output file)
+
 def create_outfile(outfile, header, items, footer):
+    """
+    simple wrapper to create an output file (can be used for more than just ibex files...)
+    params:
+        * outfile:String - name of the file to be created/overwritten
+        * header:String - the file header
+        * items:String - the items string
+        * footer:String - file footer
+    return: nothing (creates output file)
+    """
     if len(itemlist) > 0:
-        tmp = ""
-        for item in itemlist:
-            tmp += '"'+item+'",'
         try:
-            header = header % (tmp[:-1])
+            header = header % ','.join(['"{0}"'.format(item) for item in itemlist])
         except TypeError:
             pass
 
     with open(outfile, 'w') as fout:
-        fout.write("%s\n%s\n%s\n" % (header, items, footer))
+        fout.write("{0}\n{1}\n{2}\n".format(header, items, footer))
     print "File '" + outfile + "' sucessfully created"
 
 
