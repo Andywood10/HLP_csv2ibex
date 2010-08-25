@@ -22,6 +22,8 @@ import sys
 itemlist = []
 
 END_PUNCTUATION = ['.', '!', '?']
+IGNORED_VALUES = ["", "NA", "N/A", "-", None]
+
 COL_STIMULUS = "Stimulus"
 COL_STIM_ID = "StimulusID"
 COL_LIST = "List"
@@ -189,8 +191,6 @@ def generate_header_dct(dct):
 
 # ITEM GENERATION *****************************************************
 
-# generate_item_dict
-
 def generate_item_dict(infile):
     """
     params:
@@ -251,15 +251,6 @@ def generate_item_dict(infile):
                 print "ERROR: No 'Stimulus' column...\n\t-required to build an experiment!"
                 sys.exit(1)
 
-            #ITEM
-            #try:
-            #   item = line["Item"]
-            #   for w in stimulus.split(" "):
-            #       if(w == item):
-            #           w = w + "@ITEM"
-            #except KeyError:
-            #   item = None
-
             #ORDER
             try:
                 order = int(line[COL_ORDER])
@@ -281,7 +272,7 @@ def generate_item_dict(infile):
 
             #CONDITION (overwrites type, unless it's '-'
             try:
-                if(not line[COL_CONDITION].upper() in ["-", "", "NA", "N/A"]):
+                if(not line[COL_CONDITION].upper() in IGNORED_VALUES):
                     stimType = line[COL_CONDITION]
             except KeyError:
                 if not conditionWarning: print "Warning: conditions not specified, using 'defaultStim'";
@@ -301,11 +292,11 @@ def generate_item_dict(infile):
                     answer = line[COL_ANSWER+str(i)]
 
                     #make sure both the QuestionN and AnswerN fields have a value
-                    if((answer == "" or answer == None) and not (question == "" or question == None)): #exists question but no answer
+                    if(answer in IGNORED_VALUES and question not in IGNORED_VALUES): #exists question but no answer
                         qExit("WARNING at stimuli %s, question %d: No answer present for question" % (ID, i), qExitOpt)
                         raise KeyError
                         continue
-                    elif((question == "" or question == None) and not (answer == "" or answer == None)): #exists answer but no question
+                    elif(question in IGNORED_VALUES and answer not in IGNORED_VALUES): #exists answer but no question
                         qExit("WARNING at stimuli %s, question %d: No question, but answer exists" % (ID, i), qExitOpt)
                         raise KeyError
                         continue
@@ -351,7 +342,8 @@ def generate_item_dict(infile):
                 else:
                     tmpStr = '[["%s",[%s,%s]], ds, {s: "%s"}],' % (stimType, order, lst, stimulus)
             i = order+(0.1*float(lst))
-            outputLines[i] = tmpStr
+            
+            outputLines.update({i:tmpStr}) # update dict, enforcing unique items
     return outputLines
 
 
