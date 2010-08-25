@@ -60,6 +60,16 @@ def check_file(filename):
         print "\nERROR: Unable to open file '"+filename+"'\n"
         sys.exit(1)
 
+def check_punctuation(sentence):
+    """
+    Check that a given string ends in an acceptable ending punctuation
+     - @ tags are ignored in this evaluation.
+    """
+    lastword = sentence.split(" ")[-1].split("@")[0]
+    if lastword[-1] in END_PUNCTUATION:
+        return True
+    else:
+        return False
 
 # HEADER GENERATION ***************************************************
 
@@ -231,11 +241,11 @@ def generate_item_dict(infile):
 
             #STIMULUS
             try:
-                stimulus = line[COL_STIMULUS]
+                stimulus = line[COL_STIMULUS].strip()
                 if stimulus == "":
                     qExit("Warning: Blank stimulus: "+ID, qExitOpt)
                     continue
-                elif not stimulus.rstrip()[-1] in END_PUNCTUATION:
+                elif not check_punctuation(stimulus):
                     print "Warning: no ending punctuation for stimulusID ",ID
             except KeyError:
                 print "ERROR: No 'Stimulus' column...\n\t-required to build an experiment!"
