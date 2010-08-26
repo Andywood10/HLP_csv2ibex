@@ -12,7 +12,7 @@ Readme for csv2ibex.py
 csv2ibex
 ========
 
-csv2ibex is a Python script to convert a tab-delimited CSV file to a Javascript input file for Ibex (Internet Based EXperiments).  It can also be used to format the results file obtained from Ibex.  Complete documentation for Ibex, including how to host your own server and the format of the JS input files, is available at (url here).
+csv2ibex is a Python script to convert a tab-delimited CSV file to a Javascript input file for  `Ibex <http://github.com/addrummond/ibex>`_ (Internet Based EXperiments).  It can also be used to format the results file obtained from Ibex.  Complete documentation for Ibex, including how to host your own server and the format of the JS input files, is available at http://code.google.com/p/webspr/wiki/Documentation03.
 
 Running the Script
 ------------------
