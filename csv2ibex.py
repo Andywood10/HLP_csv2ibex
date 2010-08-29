@@ -1,28 +1,50 @@
 #! /usr/bin/python
-#-----------------------------------------------------------------
+#------------------------------------------------------------------
 # csv2ibex.py
-# Version 0.9.5
-#-----------------------------------------------------------------
+#------------------------------------------------------------------
 # Author: Andrew Wood <andywood@vt.edu>
 # Modified by: Andrew Watts <awatts@bcs.rochester.edu>
 #
 # HLP/Jaeger Lab
 # University of Rochester
-# 08/11/2010
-#
-# Converts a tab-delimited CSV file to a Javascript input file for
-#   Ibex (formerly webSPR) web-based self-paced reading
-#   software, available at http://code.google.com/p/webspr/
-#   under the New BSD License.
+# 08/28/2010
+#------------------------------------------------------------------
+"""
+ Converts a tab-delimited CSV file to a Javascript input file for
+   Ibex (formerly webSPR) web-based self-paced reading
+   software, available at http://code.google.com/p/webspr/
+   under the New BSD License.
+"""
 #------------------------------------------------------------------
 
 import csv
 import sys
+from sets import Set
 
-itemlist = []
+# GLOBALS *************************************************************
+#changed in script
+Criticals = []
+Non_Criticals = [] #should only end up with 'practice' and 'filler' (for now)
+ListSet = Set() #list of "list" index numbers
 
+#not changeable by config or cmdline
 END_PUNCTUATION = ['.', '!', '?']
 IGNORED_VALUES = ["", "NA", "N/A", "-", None]
+ITEM_FMT_STRINGS = { \
+                    'FULL_ITEM' : '[["{itemName}",[{gpNum},{gpDepend}]], ds, {{s: "{rs}"}}, {qs}]', \
+                    'GPNUM_ONLY': '[["{itemName}",{gpNum}], ds, {{s: "{rs}"}}, {qs}]', \
+                    'NO_GROUP'  : '["{itemName}", ds, {{s: "{rs}"}}, {qs}]' \
+                    }
+
+#editable from config or cmdline (TODO)
+ITEMS_HEADER = '[\n\t["sr", "__SendResults__", { }]\n\t'+\
+        '["sep", "Separator", {}],\n\t' +\
+        '["intro", "Message", {consentRequired: true, html: {include: "intro.html"}}],\n\t' +\
+        '["info", "Form", {html: {include: "info.html"}}],'
+ITEMS_FOOTER = '\t["contact", "Message", {consentRequired: false, html: {include: "contacts.html"}}]\n\t'+\
+        '["code", "Message", {consentRequired: false, html: {include: "code.html"}}]'
+ITEMS_PRACTICE = '\t["startprac", "Message", {consentRequired: false, html: {include: "start_practice.html"}}]\n\t'+\
+        '["endprac", "Message", {consentRequired: false, html: {include: "end_practice.html"}}]'
 
 COL_STIMULUS = "Stimulus"
 COL_STIM_ID = "StimulusID"
@@ -33,14 +55,15 @@ COL_CONDITION = "Condition"
 COL_QUESTION = "Question"
 COL_ANSWER = "Answer"
 
+
 # UTILITY *************************************************************
 qExitOpt = "PROMPT"
 
-# qExit
-# - display a message and prompt the user if they would like to continue
-# - can pass option to auto fail or auto continue
-#
 def qExit(msg, option = "PROMPT"):
+    """
+    Display a message and prompt the user if they would like to continue
+    Can pass option to auto fail or auto continue
+    """
     if option == "AUTOFAIL":
         print msg + "...STOPPING"
         sys.exit(1);
@@ -49,13 +72,14 @@ def qExit(msg, option = "PROMPT"):
         return
 
     c = raw_input(msg + "\nWould you like to continue anyway? (y/n): ")
-    if c == 'y': return
+    if c.upper() == 'Y' or c.upper() == "YES": return
     else: sys.exit(1)
 
-# check_file
-# - check if a file exists and is openable
-#
+# TODO: there is probably a saner way to do this.
 def check_file(filename):
+    """
+    check if a file exists and is openable
+    """
     try:
         f = open(filename).close()
     except IOError:
@@ -65,20 +89,28 @@ def check_file(filename):
 def check_punctuation(sentence):
     """
     Check that a given string ends in an acceptable ending punctuation
-     - @ tags are ignored in this evaluation.
+     - @ tags are ignored in this evaluation, unless one is found at the end of the tag
+     - return:
+       * true if punctuation found in the right place,
+       * false if no punctuation found at all,
+       * suggested replacement if punctuation found at end of tag
     """
-    lastword = sentence.split(" ")[-1].split("@")[0]
+    words = sentence.split(" ")
+    lastword = words[-1].split("@")[0]
     if lastword[-1] in END_PUNCTUATION:
         return True
     else:
+        if(words[-1][-1] in END_PUNCTUATION):
+            #    word-tag + last character + the tag minus the last character
+            return lastword+words[-1][-1]+words[-1][len(lastword):-1]
         return False
 
 # HEADER GENERATION ***************************************************
 
-# remove_whitespace
-# - Simple method to remove tabs and spaces from non-quote strings
-#
 def remove_whitespace(s):
+    """
+    Simple method to remove tabs and spaces from non-quote strings
+    """
     quoting = 0
     s2 = ""
     for c in s:
@@ -94,18 +126,19 @@ def remove_whitespace(s):
         s2 += c;
     return s2
 
-
-# parse_config_file
-#   params:
-#    * conf:String - name of the input configuration file
-#   return:
-#    * dictionary with following entries:
-#       * inputfile:String - the name of the default input file (used if one isn't specified on command line)
-#       * outputfile:String - name of the default output file (used if one isn't specified on command line)
-#       * filler:String - how to treat fillers
-#       * order:String - the shuffleSeq that describes the order of the items
-#       * defaults:String - the item defaults: see the hlp wiki(FIXME: url here) for specifics
 def parse_config_file(conf):
+    """
+    params:
+      * conf:String - name of the input configuration file
+    return:
+      * dictionary with following entries:
+        * inputfile:String - the name of the default input file (used if one isn't specified on command line)
+        * outputfile:String - name of the default output file (used if one isn't specified on command line)
+        * filler:String - how to treat fillers
+        * order:String - the shuffleSeq that describes the order of the items
+        * defaults:String - the item defaults: see the hlp wiki(FIXME: url here) for specifics
+    """
+    
     check_file(conf)
 
     outDict = {}
@@ -149,6 +182,7 @@ def parse_config_file(conf):
 def format_header(dct):
     """
     convert the header dictionary into a js string.
+    It is strongly recommended to run generate_item_dict first
     """
     order = dct["order"]
     filler = dct["filler"]
@@ -163,30 +197,45 @@ def format_header(dct):
         }[order]
     else:
         tmp = {
-            "ORDERED" : 'not("sep")',
+            "ORDERED" : 'anyOf(%s)',
             "SHUFFLE" : 'shuffle("filler",%s)',
             "RANDOM" : 'randomize(anyOf("filler",%s))',
             "RSHUFFLE" : 'rshuffle("filler",%s)'
         }[order]
-
+    
+    #if the item list has been generated, go ahead and fill in the critical names
+    if len(Criticals):    
+        tmp = tmp % (','.join(['"{0}"'.format(c) for c in Criticals]))
+    
     try:
-        return 'var shuffleSequence = seq("intro", "info", "practice", sepWith("sep", %s), endmsg);\n\nvar ds = "RegionedSentence"\nvar qs = "Question"\n\n%s' % (tmp, dct["defaults"])
+        outStr = 'var shuffleSequence = seq("intro", "info", "practice", sepWith("sep", %s), "contact", "sr", "code");\n\n'+\
+            'var ds = "RegionedSentence";\n'+\
+            'var qs = "Question";\n\n'+\
+            'var manualSendResults = true;\n\n' +\
+            '%s;' 
+        return outStr % (tmp, dct["defaults"])
     except KeyError:
         print "WARNING: invalid header dictionary...returning a NoneType"
         return None
 
-#generateHeader
-# - Wrappers for the parse_config_file method that generates a formatted string rather than a dictionary. Has two versions, depending on whether the user wants the intermediate dictionary structure.
-#   params (for Cnf version):
-#    * conf:String - name of the input config file
-#   params (for Dct version):
-#    * dct: - dict gathered from parse_config_file
-#   return:
-#    * String header (formatted)
 def generate_header_cnf(conf):
+    """
+    Wrapper for the parse_config_file method that generates a formatted string rather than a dictionary.    
+    params:
+      * conf:String - name of the input config file
+    return:
+      * String header (formatted)
+    """
     d = parse_config_file(conf)
     return format_header(d)
 def generate_header_dct(dct):
+    """
+    Wrapper for the parse_config_file method that generates a formatted string rather than a dictionary.    
+    params:
+      * dct: - dict gathered from parse_config_file
+    return:
+      * String header (formatted)
+    """
     return format_header(dct)
 
 # ITEM GENERATION *****************************************************
@@ -204,17 +253,19 @@ def generate_item_dict(infile):
     orderWarning = False
     conditionWarning = False
 
+    firstCritical = -1
     defaultOrder = 0
     orderCounters = {}
     outputLines = {}
     idList = []
-    IDcount = 1
+    IDcount = 2
 
     with open(infile, 'r') as csvin:
         inputdata = csv.DictReader(csvin, delimiter='\t')
 
         for line in inputdata:
             #format fields (based on what fields do or don't exist in the input file)
+            
             #STIMULUS ID
             try:
                 try:
@@ -238,6 +289,7 @@ def generate_item_dict(infile):
             except KeyError:
                 if not listWarning: print "Warning: No 'List' column present, using one list."
                 lst = 1
+            ListSet.add(lst)
 
             #STIMULUS
             try:
@@ -245,8 +297,16 @@ def generate_item_dict(infile):
                 if stimulus == "":
                     qExit("Warning: Blank stimulus: "+ID, qExitOpt)
                     continue
-                elif not check_punctuation(stimulus):
+                chk = check_punctuation(stimulus)
+                if not chk:
                     print "Warning: no ending punctuation for stimulusID ",ID
+                elif chk is not True:
+                    #then chk is a suggestion. Replace the last word with the fixed punctuation location
+                    replaceIndex = len(stimulus)-len(chk)
+                    replaced = stimulus[replaceIndex:]
+                    stimulus = stimulus[:replaceIndex]+chk
+
+                    print "Warning: misplaced punctuation at stimulusID {}: replaced '{}' with '{}'".format(ID, replaced, chk)
             except KeyError:
                 print "ERROR: No 'Stimulus' column...\n\t-required to build an experiment!"
                 sys.exit(1)
@@ -278,33 +338,40 @@ def generate_item_dict(infile):
                 if not conditionWarning: print "Warning: conditions not specified, using 'defaultStim'";
             try: #update the item list for use in shuffleSeq
                 if(not (stimType == "practice" or stimType == "filler")):
-                    itemlist.index(stimType)
+                    Criticals.index(stimType)
+                    if firstCritical == -1: firstCritical == order;
+                else:
+                    lst = 0 ##make sure that there is only one of each
             except ValueError:
-                itemlist.append(stimType)
+                Criticals.append(stimType)
+            
 
             #QUESTIONs and ANSWERs
-            questionExist = False
+            questionComplete = False
             questions = ""
             i = 1
             while True:  #loop until no more questions are found
                 try:
                     question = line[COL_QUESTION+str(i)]
                     answer = line[COL_ANSWER+str(i)]
+                    
+                    #make sure both the QuestionN and AnswerN fields have a value                    
+                    existsAnswer = answer not in IGNORED_VALUES
+                    existsQuestion = question not in IGNORED_VALUES
 
-                    #make sure both the QuestionN and AnswerN fields have a value
-                    if(answer in IGNORED_VALUES and question not in IGNORED_VALUES): #exists question but no answer
+                    if existsQuestion and not existsAnswer:
                         qExit("WARNING at stimuli %s, question %d: No answer present for question" % (ID, i), qExitOpt)
                         raise KeyError
                         continue
-                    elif(question in IGNORED_VALUES and answer not in IGNORED_VALUES): #exists answer but no question
+                    elif existsAnswer and not existsQuestion:
                         qExit("WARNING at stimuli %s, question %d: No question, but answer exists" % (ID, i), qExitOpt)
                         raise KeyError
                         continue
-                    elif(answer == "" or question =="" or answer == None or question == None): #Don't display if question or answer is missing
+                    elif not (existsAnswer and existsQuestion): #Don't display if question or answer is missing
                         raise KeyError
                         continue
                     else:
-                        questionExist = True
+                        questionComplete = True
 
                     #determine type of question (yes/no vs multiple choice)
                     if(answer.upper() == "Y" or answer.upper() == "N"):
@@ -322,32 +389,23 @@ def generate_item_dict(infile):
                     questions += '\n\t\tqs, {q: "%s" %s},' % (question, answer)
 
                 except KeyError:
-                    if not questionExist: print "No question/answer pair found for stimulus",ID,", using only stimulus.";
+                    if not questionComplete: print "No question/answer pair found for stimulus",ID,", using only stimulus.";
                     break
                 i += 1
 
-            #Build output string dictionary
-            tmpStr = ""
-            if(stimType == "filler" or stimType == "practice"):
-                if(questionExist == True):
-                    tmpStr = '["%s", ds, {s: "%s"}, %s],' % (stimType, stimulus, questions[:-1])
-                else:
-                    tmpStr = '["%s", ds, {s: "%s"}],' % (stimType, stimulus)
+            #Build output string dictionary ----
+            #determine which format the item falls under
+            if stimType == "filler" or stimType == "practice":
+                tmpStr = ITEM_FMT_STRINGS["GPNUM_ONLY"]
             else:
-                if(questionExist == True):
-                    if(order == 1):
-                        tmpStr = '[["%s",%d], ds, {s: "%s"}, %s],' % (stimType, order, stimulus, questions[:-1])
-                    else:
-                        tmpStr = '[["%s",[%d,1]], ds, {s: "%s"}, %s],' % (stimType, order, stimulus, questions[:-1])
-                else:
-                    tmpStr = '[["%s",[%s,%s]], ds, {s: "%s"}],' % (stimType, order, lst, stimulus)
+                tmpStr = ITEM_FMT_STRINGS["FULL_ITEM"]
+            # update dict, enforcing unique items (also by 'lst = 0' above)
             i = order+(0.1*float(lst))
             
-            outputLines.update({i:tmpStr}) # update dict, enforcing unique items
+            outputLines[i] = tmpStr.format(itemName=stimType, gpNum=order, gpDepend=0, rs=stimulus, qs=questions)
+
     return outputLines
 
-
-# generate_item_str
 
 def generate_item_str(infile):
     """
@@ -357,19 +415,24 @@ def generate_item_str(infile):
         * String containing the 'items' structure
     """
     dct = generate_item_dict(infile)
-    outputStr='\nvar items = [\n\t["sep", "Separator", {}],\n\t' +\
-        '["intro", "Message", {consentRequired: true, html: {include: "intro.html"}}],\n\t' +\
-        '["info", "Form", {html: {include: "info.html"}}],'
-    for i in sorted(dct):
-        outputStr += "\n\t"+str(dct[i])
-    return outputStr + '\n\t["endmsg", "Message", {consentRequired: false, html: {include: "contacts.html"}}] \n];'
+    
+    outputStr = ITEMS_HEADER
+    
+    if 'practice' in Non_Criticals:
+        outputStr += ITEMS_PRACTICE
+        
+    outputStr += "\n\t"+'\n\t'.join(['[["list_ordering", 0], "Separator", {}],' for i in range(len(ListSet))])
+        
+    outputStr += "\n\t"+'\n\t'.join([str(dct[i]) for i in sorted(dct)])
+#    for i in sorted(dct):
+#        outputStr += "\n\t"+str(dct[i])
 
+    outputStr += "\n"+ITEMS_FOOTER
+    return '\nvar items = [' + outputStr+ '\n]'
 
 # OUTPUT FILE CREATION **************************************************************
 
-# create_outfile
-
-def create_outfile(outfile, header, items, footer):
+def create_outfile(outfile, header, items, footer=""):
     """
     simple wrapper to create an output file (can be used for more than just ibex files...)
     params:
@@ -379,9 +442,9 @@ def create_outfile(outfile, header, items, footer):
         * footer:String - file footer
     return: nothing (creates output file)
     """
-    if len(itemlist) > 0:
+    if len(Criticals) > 0:
         try:
-            header = header % ','.join(['"{0}"'.format(item) for item in itemlist])
+            header = header % ','.join(['"{0}"'.format(item) for item in Criticals])
         except TypeError:
             pass
 
@@ -391,8 +454,12 @@ def create_outfile(outfile, header, items, footer):
 
 
 # FORMAT RESULTS FILE *********************************************************************
-# Produce two tab-delimited files from the supplied results file
+
 def format_results(infile):
+    """
+    Produce two tab-delimited files from the supplied results file
+    """
+    
     check_file(infile)
 
     qOut = "Timestamp\tIP_MD5\tSeq\tType\tAnswerCorrect\n"
@@ -425,12 +492,14 @@ def format_results(infile):
         fout.write(qOut)
         print "File 'questions.csv' successfully written"
 
+
 def set_force_continue(option, opt_str, value, parser):
     """
     A callback for optparse
     """
     global qExitOpt
     qExitOpt = "AUTOCONTINUE"
+
 
 def set_strict(option, opt_str, value, parser):
     """
@@ -550,10 +619,8 @@ if __name__=="__main__":
     else:
         dct["outputfile"] = outfile;
 
-    print dct
-
-    header = generate_header_dct(dct)
     items = generate_item_str(infile)
+    header = generate_header_dct(dct)
 
     #debug the cmd-line processor
     if options.doNothing:
@@ -563,7 +630,7 @@ if __name__=="__main__":
         +str(not options.fillerin) +"\n\n"+header+"\n"+items
         sys.exit(0)
     else:
-        create_outfile(outfile, header, items, "")
+        create_outfile(outfile, header, items)
         try:
             import tab
             tab.replace(outfile)
