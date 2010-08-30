@@ -19,13 +19,12 @@
 
 import csv
 import sys
-from sets import Set
 
 # GLOBALS *************************************************************
 #changed in script
 Criticals = []
 Non_Criticals = [] #should only end up with 'practice' and 'filler' (for now)
-ListSet = Set() #list of "list" index numbers
+ListSet = set() #list of "list" index numbers
 
 #not changeable by config or cmdline
 END_PUNCTUATION = ['.', '!', '?']
