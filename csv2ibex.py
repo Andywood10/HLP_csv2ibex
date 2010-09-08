@@ -196,7 +196,7 @@ def format_header(dct):
         }[order]
     else:
         tmp = {
-            "ORDERED" : 'anyOf(%s)',
+            "ORDERED" : 'anyOf("filler", %s)',
             "SHUFFLE" : 'shuffle("filler",%s)',
             "RANDOM" : 'randomize(anyOf("filler",%s))',
             "RSHUFFLE" : 'rshuffle("filler",%s)'
